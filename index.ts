@@ -1,6 +1,14 @@
 import fetch from 'node-fetch';
 import { BoardStateDetails, RequestSearchParams } from './types';
 
+// Utils
+
+function wait(millis: number) {
+    return new Promise((resolve) => {
+        setTimeout(resolve, millis);
+    });
+}
+
 async function init() {
     async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardStateDetails> {
         const standardFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR+w+KQkq+-+0+1';
@@ -31,9 +39,29 @@ async function init() {
         return boardStateDetails;
     }
 
-    const boardStateDetails = await fetchBoardStateDetails([]);
+    recurse([]);
 
-    console.log(boardStateDetails.moves);
+    async function recurse(path: string[]) {
+        if (path.length >= 4) return;
+
+        await wait(1000);
+        const boardStateDetails = await fetchBoardStateDetails(path);
+
+        console.log('path:', path);
+
+        console.log(
+            'possible moves:',
+            boardStateDetails.moves.map((move) => move.uci)
+        );
+
+        const movesToExpand = boardStateDetails.moves.slice(0, 2);
+
+        const newPaths = movesToExpand.map((move) => [...path, move.uci]);
+
+        for (const path of newPaths) {
+            await recurse(path);
+        }
+    }
 }
 
 init();
