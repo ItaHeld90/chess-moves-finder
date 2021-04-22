@@ -1,5 +1,14 @@
+import { promisify } from 'util';
 import fetch from 'node-fetch';
+import * as redis from 'redis';
 import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams } from './types';
+import { exchangeCaroKannPath, knightAttackPath, staffordGambitPath } from './openings';
+
+const redisClient = redis.createClient();
+
+// Redis
+const rGet = promisify(redisClient.get).bind(redisClient);
+const rSet = promisify(redisClient.set).bind(redisClient);
 
 // Utils
 
@@ -19,9 +28,9 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        shouldExpand: ({ numGames }) => numGames > 3000000,
+        shouldExpand: ({ numGames }) => numGames > 3000,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 1000000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 52),
+            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 70),
     };
 
     const recordedPaths = await runner(runnerParams);
@@ -36,6 +45,15 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
         fen,
         play: previousMoves.join(','),
     };
+
+    const cacheKey = JSON.stringify(requestParams);
+    const cachedResponse = await rGet(cacheKey);
+
+    if (cachedResponse) {
+        console.log('retrieved from cache');
+        return JSON.parse(cachedResponse);
+    }
+
     const urlParams = new URLSearchParams(Object.entries(requestParams));
 
     const requestInfo = {
@@ -53,39 +71,32 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
     };
 
     const url = `https://explorer.lichess.ovh/lichess?${urlParams.toString()}&variant=standard&speeds%5B%5D=classical&speeds%5B%5D=rapid&speeds%5B%5D=blitz&speeds%5B%5D=bullet&ratings%5B%5D=2500&ratings%5B%5D=2200&ratings%5B%5D=2000&ratings%5B%5D=1800&ratings%5B%5D=1600`;
+
+    await wait(1500);
+
     const res = await fetch(url, requestInfo);
 
-    try {
-        const boardStateDetails = (await res.json()) as BoardStateDetails;
-        return boardStateDetails;
-    } catch (err) {
-        console.log(err);
+    const { moves, black, white, draws } = (await res.json()) as BoardStateDetails;
+    const boardStateDetails: BoardStateDetails = { moves, black, white, draws };
 
-        const res = await fetch(url, requestInfo);
+    await rSet(cacheKey, JSON.stringify(boardStateDetails));
 
-        console.log('string response:', await res.text());
-    }
+    return boardStateDetails;
 }
 
 async function runner(params: RunnerParams) {
     const recordedPaths: string[][] = [];
 
-    await recurse([]);
+    await recurse(staffordGambitPath);
 
     return recordedPaths;
 
     async function recurse(path: string[]) {
-        await wait(250);
         const boardStateDetails = await fetchBoardStateDetails(path);
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;
 
         console.log('path:', path);
         console.log('number of games:', numBoardStateGames);
-
-        console.log(
-            'possible moves:',
-            boardStateDetails.moves.map((move) => move.uci)
-        );
 
         const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.map((move) => {
             const numMoveGames = move.white + move.black + move.draws;
