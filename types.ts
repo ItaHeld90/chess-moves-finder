@@ -17,3 +17,16 @@ export interface RequestSearchParams {
     fen: string;
     play: string;
 }
+
+export interface MoveDecisionData {
+    path: string[];
+    numGames: number;
+    probablity: number;
+    whitePercentage: number;
+    blackPercentage: number;
+    depth: number;
+}
+
+export interface RunnerParams {
+    shouldExpand: (move: MoveDecisionData) => boolean; 
+}
