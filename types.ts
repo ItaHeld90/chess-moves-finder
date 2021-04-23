@@ -19,7 +19,7 @@ export interface RequestSearchParams {
 }
 
 export interface MoveDecisionData {
-    path: string[];
+    path: MovesPath;
     toMove: 'white' | 'black';
     numGames: number;
     probablity: number;
@@ -33,13 +33,18 @@ export interface MoveDecisionData {
 export interface RunnerState {
     startTime: number;
     isArtificiallyStopped: boolean;
-    recordedPaths: string[][];
+    recordedPaths: MovesPath[];
     numExpandedMoves: number;
 }
 
 export interface RunnerParams {
-    startingPath: string[];
+    startingPath: MovesPath;
     shouldExpand: (move: MoveDecisionData) => boolean;
     shouldRecord: (move: MoveDecisionData) => boolean;
     shouldStop?: (runnerState: RunnerState) => boolean;
+}
+
+export interface MovesPath {
+    uci: string[];
+    san?: string[];
 }

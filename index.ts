@@ -1,7 +1,14 @@
 import { promisify } from 'util';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams, RunnerState } from './types';
+import {
+    BoardStateDetails,
+    RequestSearchParams,
+    MoveDecisionData,
+    RunnerParams,
+    RunnerState,
+    MovesPath,
+} from './types';
 import {
     budapestDefensePath,
     exchangeCaroKannPath,
@@ -55,7 +62,10 @@ async function init() {
     };
 
     const { recordedPaths } = await runner(runnerParams);
-    console.log('final result:', recordedPaths);
+    console.log(
+        'final result:',
+        recordedPaths.map((path) => path.san)
+    );
 }
 
 async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardStateDetails> {
@@ -117,7 +127,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
 
     return runnerState;
 
-    async function recurse(path: string[]) {
+    async function recurse(path: MovesPath) {
         if (runnerState.isArtificiallyStopped) {
             return;
         }
@@ -129,17 +139,21 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             return;
         }
 
-        const boardStateDetails = await fetchBoardStateDetails(path);
+        const boardStateDetails = await fetchBoardStateDetails(path.uci);
         runnerState.numExpandedMoves++;
 
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;
 
-        console.log('path:', path);
+        console.log('path:', path.san);
         console.log('number of games:', numBoardStateGames);
 
         const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.reduce((res, move) => {
             const numMoveGames = move.white + move.black + move.draws;
-            const movePath = [...path, move.uci];
+            const movePath: MovesPath = {
+                uci: [...path.uci, move.uci],
+                san: path.san ? [...path.san, move.san] : undefined,
+            };
+            const pathLen = movePath.uci.length;
             const probablity = percentage(numMoveGames / numBoardStateGames);
 
             // TODO: works only if moves are sorted by probability in descending order
@@ -147,14 +161,14 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
 
             const movesDecisionData: MoveDecisionData = {
                 path: movePath,
-                toMove: movePath.length % 2 === 0 ? 'white' : 'black',
+                toMove: pathLen % 2 === 0 ? 'white' : 'black',
                 numGames: numMoveGames,
                 probablity,
                 cumulativeProbability,
                 whitePercentage: percentage(move.white / numMoveGames),
                 blackPercentage: percentage(move.black / numMoveGames),
                 drawPercentage: percentage(move.draws / numMoveGames),
-                depth: movePath.length,
+                depth: pathLen,
             };
 
             return [...res, movesDecisionData];
