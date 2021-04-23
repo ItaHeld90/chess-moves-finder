@@ -30,8 +30,16 @@ export interface MoveDecisionData {
     depth: number;
 }
 
+export interface RunnerState {
+    startTime: number;
+    isArtificiallyStopped: boolean;
+    recordedPaths: string[][];
+    numExpandedMoves: number;
+}
+
 export interface RunnerParams {
     startingPath: string[];
     shouldExpand: (move: MoveDecisionData) => boolean;
     shouldRecord: (move: MoveDecisionData) => boolean;
+    shouldStop?: (runnerState: RunnerState) => boolean;
 }

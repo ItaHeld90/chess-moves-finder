@@ -1,7 +1,7 @@
 import { promisify } from 'util';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams } from './types';
+import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams, RunnerState } from './types';
 import {
     budapestDefensePath,
     exchangeCaroKannPath,
@@ -36,13 +36,25 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: italianGamePath,
-        shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
+        startingPath: staffordGambitPath,
+        shouldExpand: ({ numGames }) => numGames > 200,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 70),
+            numGames > 200 && [whitePercentage, blackPercentage].some((percentage) => percentage > 90),
+        shouldStop: ({ startTime }) => {
+            const currTime = new Date().getTime();
+            const span = currTime - startTime;
+            const seconds = span / 1000;
+
+            if (seconds > 10) {
+                console.log('timed out');
+                return true;
+            }
+
+            return false;
+        },
     };
 
-    const recordedPaths = await runner(runnerParams);
+    const { recordedPaths } = await runner(runnerParams);
     console.log('final result:', recordedPaths);
 }
 
@@ -93,15 +105,33 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
     return boardStateDetails;
 }
 
-async function runner(params: RunnerParams) {
-    const recordedPaths: string[][] = [];
+async function runner(params: RunnerParams): Promise<RunnerState> {
+    const runnerState: RunnerState = {
+        startTime: new Date().getTime(),
+        recordedPaths: [],
+        numExpandedMoves: 0,
+        isArtificiallyStopped: false,
+    };
 
     await recurse(params.startingPath);
 
-    return recordedPaths;
+    return runnerState;
 
     async function recurse(path: string[]) {
+        if (runnerState.isArtificiallyStopped) {
+            return;
+        }
+
+        const shouldStop = params.shouldStop?.(runnerState);
+
+        if (shouldStop) {
+            runnerState.isArtificiallyStopped = true;
+            return;
+        }
+
         const boardStateDetails = await fetchBoardStateDetails(path);
+        runnerState.numExpandedMoves++;
+
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;
 
         console.log('path:', path);
@@ -135,7 +165,7 @@ async function runner(params: RunnerParams) {
             const shouldExpand = params.shouldExpand(moveDecisionData);
 
             if (shouldRecord) {
-                recordedPaths.push(moveDecisionData.path);
+                runnerState.recordedPaths.push(moveDecisionData.path);
             }
 
             if (shouldExpand) {
