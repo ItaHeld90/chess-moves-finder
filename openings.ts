@@ -18,9 +18,14 @@ export const italianBirdAttack: MovesPath = {
 };
 export const staffordGambitPath: MovesPath = {
     uci: ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'f3e5', 'b8c6', 'e5c6'],
-    san: ['e4', 'e5', 'Nf3', 'Nf6', 'Nxe5', 'Nc6'],
+    san: ['e4', 'e5', 'Nf3', 'Nf6', 'Nxe5', 'Nc6', 'Nxc6'],
 };
 export const budapestDefensePath: MovesPath = {
     uci: ['d2d4', 'g8f6', 'c2c4', 'e7e5', 'd4e5', 'f6g4'],
     san: ['d4', 'Nf6', 'c4', 'e5', 'dxe5', 'Ng4'],
+};
+
+export const closedSicilianPath: MovesPath = {
+    uci: ['e2e4', 'c7c5', 'b1c3'],
+    san: ['e4', 'c5', 'Nc3'],
 };

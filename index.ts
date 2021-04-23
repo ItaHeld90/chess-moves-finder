@@ -1,6 +1,9 @@
 import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
+import { chunk, last } from 'lodash';
 import {
     BoardStateDetails,
     RequestSearchParams,
@@ -17,9 +20,12 @@ import {
     knightAttackPath,
     staffordGambitPath,
 } from './openings';
-import { last, sum } from 'lodash';
 
 const redisClient = redis.createClient();
+
+// promisified
+const writeFile = promisify(fs.writeFile);
+const mkdir = promisify(fs.mkdir);
 
 // Redis
 const rGet = promisify(redisClient.get).bind(redisClient);
@@ -35,6 +41,17 @@ function wait(millis: number) {
 
 function percentage(num: number): number {
     return Number((num * 100).toFixed(2));
+}
+
+function sansPathToPGN(sansPath: string[]): string {
+    const pgn = chunk(sansPath, 2)
+        .reduce((res, movesPair, idx) => {
+            const moveText = `${idx + 1}. ${movesPair.join(' ')}`;
+            return `${res} ${moveText}`;
+        }, '')
+        .trim();
+
+    return pgn;
 }
 
 /* ********************************************** */
@@ -62,9 +79,25 @@ async function init() {
     };
 
     const { recordedPaths } = await runner(runnerParams);
-    console.log(
-        'final result:',
-        recordedPaths.map((path) => path.san)
+    const pgns = recordedPaths.filter((path) => path.san).map((path) => sansPathToPGN(path.san!));
+    await savePGNs(pgns);
+    console.log('final result:', pgns);
+}
+
+async function savePGNs(pgns: string[]) {
+    const savePathBase = path.resolve('/Users', 'user', 'Itamar', 'generated_chess_moves');
+    const date = new Date();
+    const folderName = `${date.getUTCDay()}_${date.getUTCMonth()}_${date.getUTCFullYear()}_${date.getUTCHours()}_${date.getUTCMinutes()}_${date.getUTCSeconds()}`;
+
+    const folderPath = path.resolve(savePathBase, folderName);
+
+    await mkdir(folderPath);
+
+    return Promise.all(
+        pgns.map((pgn, idx) => {
+            const filePath = path.resolve(folderPath, `result_${idx + 1}.pgn`);
+            return writeFile(filePath, pgn);
+        })
     );
 }
 
