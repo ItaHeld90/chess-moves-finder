@@ -6,9 +6,11 @@ import {
     budapestDefensePath,
     exchangeCaroKannPath,
     italianBirdAttack,
+    italianGamePath,
     knightAttackPath,
     staffordGambitPath,
 } from './openings';
+import { last, sum } from 'lodash';
 
 const redisClient = redis.createClient();
 
@@ -34,10 +36,10 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: italianBirdAttack,
-        shouldExpand: ({ numGames }) => numGames > 500,
+        startingPath: italianGamePath,
+        shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 500 && [whitePercentage, blackPercentage].some((percentage) => percentage > 60),
+            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 70),
     };
 
     const recordedPaths = await runner(runnerParams);
@@ -61,6 +63,7 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
         return JSON.parse(cachedResponse);
     }
 
+    // @ts-ignore
     const urlParams = new URLSearchParams(Object.entries(requestParams));
 
     const requestInfo = {
@@ -73,7 +76,6 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'cross-site',
         },
-        body: null,
         method: 'GET',
     };
 
@@ -105,19 +107,28 @@ async function runner(params: RunnerParams) {
         console.log('path:', path);
         console.log('number of games:', numBoardStateGames);
 
-        const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.map((move) => {
+        const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.reduce((res, move) => {
             const numMoveGames = move.white + move.black + move.draws;
             const movePath = [...path, move.uci];
+            const probablity = percentage(numMoveGames / numBoardStateGames);
 
-            return {
+            // TODO: works only if moves are sorted by probability in descending order
+            const cumulativeProbability = (last(res)?.cumulativeProbability ?? 0) + probablity;
+
+            const movesDecisionData: MoveDecisionData = {
                 path: movePath,
+                toMove: movePath.length % 2 === 0 ? 'white' : 'black',
                 numGames: numMoveGames,
-                probablity: percentage(numMoveGames / numBoardStateGames),
+                probablity,
+                cumulativeProbability,
                 whitePercentage: percentage(move.white / numMoveGames),
                 blackPercentage: percentage(move.black / numMoveGames),
+                drawPercentage: percentage(move.draws / numMoveGames),
                 depth: movePath.length,
             };
-        });
+
+            return [...res, movesDecisionData];
+        }, [] as MoveDecisionData[]);
 
         for (const moveDecisionData of movesDecisionData) {
             const shouldRecord = params.shouldRecord(moveDecisionData);

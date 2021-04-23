@@ -20,10 +20,13 @@ export interface RequestSearchParams {
 
 export interface MoveDecisionData {
     path: string[];
+    toMove: 'white' | 'black';
     numGames: number;
     probablity: number;
+    cumulativeProbability: number;
     whitePercentage: number;
     blackPercentage: number;
+    drawPercentage: number;
     depth: number;
 }
 
