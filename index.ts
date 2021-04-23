@@ -2,7 +2,13 @@ import { promisify } from 'util';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
 import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams } from './types';
-import { exchangeCaroKannPath, knightAttackPath, staffordGambitPath } from './openings';
+import {
+    budapestDefensePath,
+    exchangeCaroKannPath,
+    italianBirdAttack,
+    knightAttackPath,
+    staffordGambitPath,
+} from './openings';
 
 const redisClient = redis.createClient();
 
@@ -28,9 +34,10 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        shouldExpand: ({ numGames }) => numGames > 3000,
+        startingPath: italianBirdAttack,
+        shouldExpand: ({ numGames }) => numGames > 500,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 70),
+            numGames > 500 && [whitePercentage, blackPercentage].some((percentage) => percentage > 60),
     };
 
     const recordedPaths = await runner(runnerParams);
@@ -72,7 +79,7 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 
     const url = `https://explorer.lichess.ovh/lichess?${urlParams.toString()}&variant=standard&speeds%5B%5D=classical&speeds%5B%5D=rapid&speeds%5B%5D=blitz&speeds%5B%5D=bullet&ratings%5B%5D=2500&ratings%5B%5D=2200&ratings%5B%5D=2000&ratings%5B%5D=1800&ratings%5B%5D=1600`;
 
-    await wait(1500);
+    await wait(1000);
 
     const res = await fetch(url, requestInfo);
 
@@ -87,7 +94,7 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 async function runner(params: RunnerParams) {
     const recordedPaths: string[][] = [];
 
-    await recurse(staffordGambitPath);
+    await recurse(params.startingPath);
 
     return recordedPaths;
 

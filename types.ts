@@ -28,6 +28,7 @@ export interface MoveDecisionData {
 }
 
 export interface RunnerParams {
+    startingPath: string[];
     shouldExpand: (move: MoveDecisionData) => boolean;
     shouldRecord: (move: MoveDecisionData) => boolean;
 }
