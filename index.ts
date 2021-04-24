@@ -1,6 +1,7 @@
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
+import readline from 'readline';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
 import { chunk, sumBy } from 'lodash';
@@ -22,11 +23,17 @@ import {
     staffordGambitPath,
 } from './openings';
 
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+});
+
 const redisClient = redis.createClient();
 
 // promisified
 const writeFile = promisify(fs.writeFile);
 const mkdir = promisify(fs.mkdir);
+const exists = promisify(fs.exists);
 
 // Redis
 const rGet = promisify(redisClient.get).bind(redisClient);
@@ -61,14 +68,14 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: panovAttackPath,
+        startingPath: staffordGambitPath,
         shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
             numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 60),
         shouldStop: ({ millis }) => {
             const seconds = millis / 1000;
 
-            if (seconds > 60) {
+            if (seconds > 10) {
                 console.log('timed out');
                 return true;
             }
@@ -80,21 +87,44 @@ async function init() {
     const { recordedPaths } = await runner(runnerParams);
     const pgns = recordedPaths.filter((path) => path.san).map((path) => sansPathToPGN(path.san!));
 
-    if (pgns.length) {
-        await savePGNs(pgns);
-    }
-
     console.log('final result:', pgns);
+
+    if (!pgns.length) return;
+
+    const shouldSaveReplay = await question('Would you like to save your results? (Y/N) ');
+    const shouldSave = shouldSaveReplay.toLowerCase() === 'y';
+
+    if (!shouldSave) return;
+
+    const defaultFolderName = getDefaultFolderName();
+    const folderName = (await question(`folder name: (${defaultFolderName}) `)) || defaultFolderName;
+
+    await savePGNs(pgns, folderName);
+    console.log('results were saved successfully');
+    rl.close();
 }
 
-async function savePGNs(pgns: string[]) {
-    const savePathBase = path.resolve('/Users', 'user', 'Itamar', 'generated_chess_moves');
+function question(q: string): Promise<string> {
+    return new Promise((resolve) => {
+        rl.question(q, (reply) => {
+            resolve(reply);
+        });
+    });
+}
+
+function getDefaultFolderName() {
     const date = new Date();
     const folderName = `${date.getUTCDay()}_${date.getUTCMonth()}_${date.getUTCFullYear()}_${date.getUTCHours()}_${date.getUTCMinutes()}_${date.getUTCSeconds()}`;
+    return folderName;
+}
 
+async function savePGNs(pgns: string[], folderName: string) {
+    const savePathBase = path.resolve('/Users', 'user', 'Itamar', 'generated_chess_moves');
     const folderPath = path.resolve(savePathBase, folderName);
 
-    await mkdir(folderPath);
+    if (!(await exists(folderPath))) {
+        await mkdir(folderPath);
+    }
 
     return Promise.all(
         pgns.map((pgn, idx) => {
