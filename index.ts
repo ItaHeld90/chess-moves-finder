@@ -79,7 +79,11 @@ async function init() {
 
     const { recordedPaths } = await runner(runnerParams);
     const pgns = recordedPaths.filter((path) => path.san).map((path) => sansPathToPGN(path.san!));
-    await savePGNs(pgns);
+
+    if (pgns.length) {
+        await savePGNs(pgns);
+    }
+
     console.log('final result:', pgns);
 }
 
