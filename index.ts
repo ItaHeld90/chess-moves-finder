@@ -1,18 +1,40 @@
 import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
+import readline from 'readline';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { BoardStateDetails, RequestSearchParams, MoveDecisionData, RunnerParams } from './types';
+import { chunk, sumBy } from 'lodash';
+import {
+    BoardStateDetails,
+    RequestSearchParams,
+    MoveDecisionData,
+    RunnerParams,
+    RunnerState,
+    MovesPath,
+} from './types';
 import {
     budapestDefensePath,
     exchangeCaroKannPath,
+    friedLiverAttack,
     italianBirdAttack,
     italianGamePath,
     knightAttackPath,
+    panovAttackPath,
     staffordGambitPath,
 } from './openings';
-import { last, sum } from 'lodash';
+
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+});
 
 const redisClient = redis.createClient();
+
+// promisified
+const writeFile = promisify(fs.writeFile);
+const mkdir = promisify(fs.mkdir);
+const exists = promisify(fs.exists);
 
 // Redis
 const rGet = promisify(redisClient.get).bind(redisClient);
@@ -30,20 +52,87 @@ function percentage(num: number): number {
     return Number((num * 100).toFixed(2));
 }
 
+function sansPathToPGN(sansPath: string[]): string {
+    const pgn = chunk(sansPath, 2)
+        .reduce((res, movesPair, idx) => {
+            const moveText = `${idx + 1}. ${movesPair.join(' ')}`;
+            return `${res} ${moveText}`;
+        }, '')
+        .trim();
+
+    return pgn;
+}
+
 /* ********************************************** */
 
 init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: italianGamePath,
-        shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
+        startingPath: friedLiverAttack,
+        shouldExpand: ({ numGames }) => numGames > 500,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 70),
+            numGames > 500 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
+        shouldStop: ({ millis }) => {
+            const seconds = millis / 1000;
+
+            if (seconds > 120) {
+                console.log('timed out');
+                return true;
+            }
+
+            return false;
+        },
     };
 
-    const recordedPaths = await runner(runnerParams);
-    console.log('final result:', recordedPaths);
+    const { recordedPaths } = await runner(runnerParams);
+    const pgns = recordedPaths.filter((path) => path.san).map((path) => sansPathToPGN(path.san!));
+
+    console.log('final result:', pgns);
+
+    if (!pgns.length) return;
+
+    const shouldSaveReplay = await question('Would you like to save your results? (Y/N) ');
+    const shouldSave = shouldSaveReplay.toLowerCase() === 'y';
+
+    if (!shouldSave) return;
+
+    const defaultFolderName = getDefaultFolderName();
+    const folderName = (await question(`folder name: (${defaultFolderName}) `)) || defaultFolderName;
+
+    await savePGNs(pgns, folderName);
+    console.log('results were saved successfully');
+    rl.close();
+}
+
+function question(q: string): Promise<string> {
+    return new Promise((resolve) => {
+        rl.question(q, (reply) => {
+            resolve(reply);
+        });
+    });
+}
+
+function getDefaultFolderName() {
+    const date = new Date();
+    const folderName = `${date.getUTCDay()}_${date.getUTCMonth()}_${date.getUTCFullYear()}_${date.getUTCHours()}_${date.getUTCMinutes()}_${date.getUTCSeconds()}`;
+    return folderName;
+}
+
+async function savePGNs(pgns: string[], folderName: string) {
+    const savePathBase = path.resolve('/Users', 'user', 'Itamar', 'generated_chess_moves');
+    const folderPath = path.resolve(savePathBase, folderName);
+
+    if (!(await exists(folderPath))) {
+        await mkdir(folderPath);
+    }
+
+    return Promise.all(
+        pgns.map((pgn, idx) => {
+            const filePath = path.resolve(folderPath, `result_${idx + 1}.pgn`);
+            return writeFile(filePath, pgn);
+        })
+    );
 }
 
 async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardStateDetails> {
@@ -93,38 +182,68 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
     return boardStateDetails;
 }
 
-async function runner(params: RunnerParams) {
-    const recordedPaths: string[][] = [];
+async function runner(params: RunnerParams): Promise<RunnerState> {
+    const startTime = new Date().getTime();
+    const recordedPaths: MovesPath[] = [];
+    let numExpandedMoves = 0;
+    let isArtificiallyStopped = false;
 
     await recurse(params.startingPath);
 
-    return recordedPaths;
+    return getRunnerState();
 
-    async function recurse(path: string[]) {
-        const boardStateDetails = await fetchBoardStateDetails(path);
+    function getRunnerState(): RunnerState {
+        return {
+            millis: new Date().getTime() - startTime,
+            recordedPaths,
+            numExpandedMoves,
+            isArtificiallyStopped,
+        };
+    }
+
+    async function recurse(path: MovesPath) {
+        if (isArtificiallyStopped) {
+            return;
+        }
+
+        const runnerState = getRunnerState();
+        const shouldStop = params.shouldStop?.(runnerState);
+
+        if (shouldStop) {
+            isArtificiallyStopped = true;
+            return;
+        }
+
+        const boardStateDetails = await fetchBoardStateDetails(path.uci);
+        numExpandedMoves++;
+
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;
 
-        console.log('path:', path);
+        console.log('path:', path.san);
         console.log('number of games:', numBoardStateGames);
 
         const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.reduce((res, move) => {
             const numMoveGames = move.white + move.black + move.draws;
-            const movePath = [...path, move.uci];
+            const movePath: MovesPath = {
+                uci: [...path.uci, move.uci],
+                san: path.san ? [...path.san, move.san] : undefined,
+            };
+            const pathLen = movePath.uci.length;
             const probablity = percentage(numMoveGames / numBoardStateGames);
 
             // TODO: works only if moves are sorted by probability in descending order
-            const cumulativeProbability = (last(res)?.cumulativeProbability ?? 0) + probablity;
+            const cumulativeProbability = sumBy(res, (move) => move.probablity);
 
             const movesDecisionData: MoveDecisionData = {
                 path: movePath,
-                toMove: movePath.length % 2 === 0 ? 'white' : 'black',
+                toMove: pathLen % 2 === 0 ? 'white' : 'black',
                 numGames: numMoveGames,
                 probablity,
                 cumulativeProbability,
                 whitePercentage: percentage(move.white / numMoveGames),
                 blackPercentage: percentage(move.black / numMoveGames),
                 drawPercentage: percentage(move.draws / numMoveGames),
-                depth: movePath.length,
+                depth: pathLen,
             };
 
             return [...res, movesDecisionData];
@@ -135,6 +254,7 @@ async function runner(params: RunnerParams) {
             const shouldExpand = params.shouldExpand(moveDecisionData);
 
             if (shouldRecord) {
+                console.log('recorded path:', moveDecisionData.path.san);
                 recordedPaths.push(moveDecisionData.path);
             }
 
