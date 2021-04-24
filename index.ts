@@ -16,6 +16,7 @@ import {
 import {
     budapestDefensePath,
     exchangeCaroKannPath,
+    friedLiverAttack,
     italianBirdAttack,
     italianGamePath,
     knightAttackPath,
@@ -68,14 +69,14 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: staffordGambitPath,
-        shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
+        startingPath: friedLiverAttack,
+        shouldExpand: ({ numGames }) => numGames > 500,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 60),
+            numGames > 500 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
         shouldStop: ({ millis }) => {
             const seconds = millis / 1000;
 
-            if (seconds > 10) {
+            if (seconds > 120) {
                 console.log('timed out');
                 return true;
             }
@@ -253,6 +254,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             const shouldExpand = params.shouldExpand(moveDecisionData);
 
             if (shouldRecord) {
+                console.log('recorded path:', moveDecisionData.path.san);
                 recordedPaths.push(moveDecisionData.path);
             }
 
