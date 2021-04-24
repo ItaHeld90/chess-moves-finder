@@ -29,3 +29,8 @@ export const closedSicilianPath: MovesPath = {
     uci: ['e2e4', 'c7c5', 'b1c3'],
     san: ['e4', 'c5', 'Nc3'],
 };
+
+export const panovAttackPath: MovesPath = {
+    uci: ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4d5', 'c6d5', 'c2c4'],
+    san: ['e4', 'c6', 'd4', 'd5', 'exd5', 'cxd5', 'c4'],
+};

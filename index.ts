@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { chunk, last } from 'lodash';
+import { chunk, sumBy } from 'lodash';
 import {
     BoardStateDetails,
     RequestSearchParams,
@@ -18,6 +18,7 @@ import {
     italianBirdAttack,
     italianGamePath,
     knightAttackPath,
+    panovAttackPath,
     staffordGambitPath,
 } from './openings';
 
@@ -60,16 +61,14 @@ init();
 
 async function init() {
     const runnerParams: RunnerParams = {
-        startingPath: staffordGambitPath,
-        shouldExpand: ({ numGames }) => numGames > 200,
+        startingPath: panovAttackPath,
+        shouldExpand: ({ numGames, cumulativeProbability }) => numGames > 10000 && cumulativeProbability < 90,
         shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 200 && [whitePercentage, blackPercentage].some((percentage) => percentage > 90),
-        shouldStop: ({ startTime }) => {
-            const currTime = new Date().getTime();
-            const span = currTime - startTime;
-            const seconds = span / 1000;
+            numGames > 10000 && [whitePercentage, blackPercentage].some((percentage) => percentage > 60),
+        shouldStop: ({ millis }) => {
+            const seconds = millis / 1000;
 
-            if (seconds > 10) {
+            if (seconds > 60) {
                 console.log('timed out');
                 return true;
             }
@@ -149,31 +148,39 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 }
 
 async function runner(params: RunnerParams): Promise<RunnerState> {
-    const runnerState: RunnerState = {
-        startTime: new Date().getTime(),
-        recordedPaths: [],
-        numExpandedMoves: 0,
-        isArtificiallyStopped: false,
-    };
+    const startTime = new Date().getTime();
+    const recordedPaths: MovesPath[] = [];
+    let numExpandedMoves = 0;
+    let isArtificiallyStopped = false;
 
     await recurse(params.startingPath);
 
-    return runnerState;
+    return getRunnerState();
+
+    function getRunnerState(): RunnerState {
+        return {
+            millis: new Date().getTime() - startTime,
+            recordedPaths,
+            numExpandedMoves,
+            isArtificiallyStopped,
+        };
+    }
 
     async function recurse(path: MovesPath) {
-        if (runnerState.isArtificiallyStopped) {
+        if (isArtificiallyStopped) {
             return;
         }
 
+        const runnerState = getRunnerState();
         const shouldStop = params.shouldStop?.(runnerState);
 
         if (shouldStop) {
-            runnerState.isArtificiallyStopped = true;
+            isArtificiallyStopped = true;
             return;
         }
 
         const boardStateDetails = await fetchBoardStateDetails(path.uci);
-        runnerState.numExpandedMoves++;
+        numExpandedMoves++;
 
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;
 
@@ -190,7 +197,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             const probablity = percentage(numMoveGames / numBoardStateGames);
 
             // TODO: works only if moves are sorted by probability in descending order
-            const cumulativeProbability = (last(res)?.cumulativeProbability ?? 0) + probablity;
+            const cumulativeProbability = sumBy(res, (move) => move.probablity);
 
             const movesDecisionData: MoveDecisionData = {
                 path: movePath,
@@ -212,7 +219,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             const shouldExpand = params.shouldExpand(moveDecisionData);
 
             if (shouldRecord) {
-                runnerState.recordedPaths.push(moveDecisionData.path);
+                recordedPaths.push(moveDecisionData.path);
             }
 
             if (shouldExpand) {

@@ -31,7 +31,7 @@ export interface MoveDecisionData {
 }
 
 export interface RunnerState {
-    startTime: number;
+    millis: number;
     isArtificiallyStopped: boolean;
     recordedPaths: MovesPath[];
     numExpandedMoves: number;
