@@ -4,7 +4,7 @@ import path from 'path';
 import readline from 'readline';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { chunk, sumBy } from 'lodash';
+import { chunk, groupBy, partition, sumBy } from 'lodash';
 import {
     BoardStateDetails,
     RequestSearchParams,
@@ -61,6 +61,21 @@ function sansPathToPGN(sansPath: string[]): string {
         .trim();
 
     return pgn;
+}
+
+// TODO: finish implementing
+function structure(arrays: string[][], arrIdx = 0): Object {
+    const [terminatedArrays, nonTerminatedArrays] = partition(arrays, (arr) => arrIdx > arr.length - 1);
+    const groupedByFirst = groupBy(nonTerminatedArrays, (arr) => arr[arrIdx]);
+
+    const subStructures = Object.entries(groupedByFirst).reduce((res, [key, grouped]) => {
+        return { ...res, [key]: structure(grouped, arrIdx + 1) };
+    }, {});
+
+    return {
+        ...(terminatedArrays.length ? { terminated: terminatedArrays[0] } : {}),
+        ...subStructures,
+    };
 }
 
 /* ********************************************** */
