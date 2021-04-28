@@ -123,8 +123,11 @@ async function init() {
     const runnerParams: RunnerParams = {
         startingPath: staffordGambitPath,
         shouldExpand: ({ numGames, depth }) => numGames > 300 && depth < 15,
-        shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 300 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
+        shouldRecord: ({ numGames, whitePercentage, blackPercentage, prevMoveData }) =>
+            numGames > 300 &&
+            !!prevMoveData &&
+            blackPercentage - prevMoveData.blackPercentage > 15 &&
+            [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
         shouldStop: ({ millis }) => {
             // const seconds = millis / 1000;
 
@@ -319,7 +322,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
         };
     }
 
-    async function recurse(path: MovesPath) {
+    async function recurse(path: MovesPath, lastMoveDecisionData?: MoveDecisionData) {
         if (isArtificiallyStopped) {
             return;
         }
@@ -352,7 +355,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             // TODO: works only if moves are sorted by probability in descending order
             const cumulativeProbability = sumBy(res, (move) => move.probablity);
 
-            const movesDecisionData: MoveDecisionData = {
+            const moveDecisionData: MoveDecisionData = {
                 path: movePath,
                 toMove: pathLen % 2 === 0 ? 'white' : 'black',
                 numGames: numMoveGames,
@@ -362,9 +365,10 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
                 blackPercentage: percentage(move.black / numMoveGames),
                 drawPercentage: percentage(move.draws / numMoveGames),
                 depth: pathLen - startingPathLen,
+                prevMoveData: lastMoveDecisionData,
             };
 
-            return [...res, movesDecisionData];
+            return [...res, moveDecisionData];
         }, [] as MoveDecisionData[]);
 
         for (const moveDecisionData of movesDecisionData) {
@@ -377,7 +381,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             }
 
             if (shouldExpand) {
-                await recurse(moveDecisionData.path);
+                await recurse(moveDecisionData.path, moveDecisionData);
             }
         }
     }

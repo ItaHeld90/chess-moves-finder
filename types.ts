@@ -28,6 +28,7 @@ export interface MoveDecisionData {
     blackPercentage: number;
     drawPercentage: number;
     depth: number;
+    prevMoveData?: MoveDecisionData;
 }
 
 export interface RunnerState {
