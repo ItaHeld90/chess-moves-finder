@@ -19,6 +19,7 @@ export interface RequestSearchParams {
 }
 
 export interface MoveDecisionData {
+    id: string;
     path: MovesPath;
     toMove: 'white' | 'black';
     numGames: number;
@@ -29,6 +30,7 @@ export interface MoveDecisionData {
     drawPercentage: number;
     depth: number;
     prevMoveData?: MoveDecisionData;
+    alternativeMovesData?: MoveDecisionData[];
 }
 
 export interface RunnerState {

@@ -61,6 +61,10 @@ function percentage(num: number): number {
     return Number((num * 100).toFixed(2));
 }
 
+function addGetter<T extends Object, K extends keyof T>(obj: T, getterKey: K, getter: () => T[K]): T {
+    return Object.defineProperty(obj, getterKey, { get: getter });
+}
+
 function sansPathToPGN(sansPath: string[]): string {
     const pgn = chunk(sansPath, 2)
         .reduce((res, movesPair, idx) => {
@@ -125,8 +129,9 @@ async function init() {
     const runnerParams: RunnerParams = {
         startingPath: staffordGambitPath,
         shouldExpand: ({ numGames, depth }) => numGames > 300 && depth < 15,
-        shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
-            numGames > 300 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
+        shouldRecord: ({ numGames, whitePercentage, blackPercentage }) => {
+            return numGames > 300 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85);
+        },
         shouldStop: ({ millis }) => {
             // const seconds = millis / 1000;
 
@@ -355,6 +360,7 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
             const cumulativeProbability = sumBy(res, (move) => move.probablity);
 
             const moveDecisionData: MoveDecisionData = {
+                id: movePath.uci.join(' '),
                 path: movePath,
                 toMove: pathLen % 2 === 0 ? 'white' : 'black',
                 numGames: numMoveGames,
@@ -369,6 +375,13 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
 
             return [...res, moveDecisionData];
         }, [] as MoveDecisionData[]);
+
+        // add alternative moves data to each move decision data
+        movesDecisionData.forEach((moveDecisionData) => {
+            addGetter(moveDecisionData, 'alternativeMovesData', () =>
+                movesDecisionData.filter((m) => m.id !== moveDecisionData.id)
+            );
+        });
 
         for (const moveDecisionData of movesDecisionData) {
             const shouldRecord = params.shouldRecord(moveDecisionData);
