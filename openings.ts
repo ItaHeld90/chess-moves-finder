@@ -18,7 +18,7 @@ export const italianBirdAttack: MovesPath = {
 };
 
 export const friedLiverAttack: MovesPath = {
-    uci: ['e2e4','e7e5','g1f3','b8c6','f1c4','g8f6','f3g5','d7d5','e4d5','f6d5','g5f7','e8f7','d1f3'],
+    uci: ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'g8f6', 'f3g5', 'd7d5', 'e4d5', 'f6d5', 'g5f7', 'e8f7', 'd1f3'],
     san: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6', 'Ng5', 'd5', 'exd5', 'Nxd5', 'Nxf7', 'Kxf7', 'Qf3+'],
 };
 export const staffordGambitPath: MovesPath = {
@@ -38,4 +38,9 @@ export const closedSicilianPath: MovesPath = {
 export const panovAttackPath: MovesPath = {
     uci: ['e2e4', 'c7c6', 'd2d4', 'd7d5', 'e4d5', 'c6d5', 'c2c4'],
     san: ['e4', 'c6', 'd4', 'd5', 'exd5', 'cxd5', 'c4'],
+};
+
+export const staffordQueenPath: MovesPath = {
+    uci: ['e2e4', 'e7e5', 'g1f3', 'g8f6', 'f3e5', 'b8c6', 'e5c6', 'd7c6', 'd1f3'],
+    san: ['e4', 'e5', 'Nf3', 'Nf6', 'Nxe5', 'Nc6', 'Nxc6', 'dxc6', 'Qf3'],
 };

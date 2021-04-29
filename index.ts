@@ -12,6 +12,7 @@ import {
     RunnerParams,
     RunnerState,
     MovesPath,
+    RecordedPath,
 } from './types';
 import {
     budapestDefensePath,
@@ -22,6 +23,7 @@ import {
     knightAttackPath,
     panovAttackPath,
     staffordGambitPath,
+    staffordQueenPath,
 } from './openings';
 
 type Structure = {
@@ -123,17 +125,14 @@ async function init() {
     const runnerParams: RunnerParams = {
         startingPath: staffordGambitPath,
         shouldExpand: ({ numGames, depth }) => numGames > 300 && depth < 15,
-        shouldRecord: ({ numGames, whitePercentage, blackPercentage, prevMoveData }) =>
-            numGames > 300 &&
-            !!prevMoveData &&
-            blackPercentage - prevMoveData.blackPercentage > 15 &&
-            [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
+        shouldRecord: ({ numGames, whitePercentage, blackPercentage }) =>
+            numGames > 300 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85),
         shouldStop: ({ millis }) => {
             // const seconds = millis / 1000;
 
             // if (seconds > 300) {
-            // 	console.log('timed out');
-            // 	return true;
+            //     console.log('timed out');
+            //     return true;
             // }
 
             return false;
@@ -141,7 +140,7 @@ async function init() {
     };
 
     const { recordedPaths } = await runner(runnerParams);
-    const recordedPathsToSave = recordedPaths.filter((path) => path.san);
+    const recordedPathsToSave = recordedPaths.map(({ path }) => path).filter((path) => path.san);
     const pgns = recordedPathsToSave.map((path) => sansPathToPGN(path.san!));
 
     console.log('results:', pgns);
@@ -303,7 +302,7 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 
 async function runner(params: RunnerParams): Promise<RunnerState> {
     const startTime = new Date().getTime();
-    const recordedPaths: MovesPath[] = [];
+    const recordedPaths: RecordedPath[] = [];
     let numExpandedMoves = 0;
     let isArtificiallyStopped = false;
 
@@ -377,7 +376,11 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
 
             if (shouldRecord) {
                 console.log('recorded path:', moveDecisionData.path.san);
-                recordedPaths.push(moveDecisionData.path);
+                const recordedPath: RecordedPath = {
+                    path: moveDecisionData.path,
+                    decisionData: moveDecisionData,
+                };
+                recordedPaths.push(recordedPath);
             }
 
             if (shouldExpand) {

@@ -34,7 +34,7 @@ export interface MoveDecisionData {
 export interface RunnerState {
     millis: number;
     isArtificiallyStopped: boolean;
-    recordedPaths: MovesPath[];
+    recordedPaths: RecordedPath[];
     numExpandedMoves: number;
 }
 
@@ -48,4 +48,9 @@ export interface RunnerParams {
 export interface MovesPath {
     uci: string[];
     san?: string[];
+}
+
+export interface RecordedPath {
+    path: MovesPath;
+    decisionData: MoveDecisionData;
 }
