@@ -6,7 +6,10 @@
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
         "start": "ts-node index.ts",
-        "build": "tsc --build"
+        "build": "tsc --build",
+        "start-redis": "docker run -dit --rm --name=chess-moves-redis --mount type=volume,src=chess-moves-redis-vol,target=/data -p 6379:6379 redis:6.0.8 redis-server --appendonly yes",
+        "stop-redis": "docker stop chess-moves-redis",
+        "clear-moves-cache": "docker volume rm chess-moves-redis-vol"
     },
     "author": "Itamar Held <itaheld1990@gmail.com>",
     "license": "MIT",
