@@ -267,16 +267,17 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
         play: previousMoves.join(','),
     };
 
-    const cacheKey = JSON.stringify(requestParams);
+    // @ts-ignore
+    const urlParams = new URLSearchParams(Object.entries(requestParams));
+
+    const url = `https://explorer.lichess.ovh/lichess?${urlParams.toString()}&variant=standard&speeds%5B%5D=classical&speeds%5B%5D=rapid&speeds%5B%5D=blitz&speeds%5B%5D=bullet&ratings%5B%5D=2500&ratings%5B%5D=2200&ratings%5B%5D=2000&ratings%5B%5D=1800&ratings%5B%5D=1600`;
+    const cacheKey = url;
     const cachedResponse = await rGet(cacheKey);
 
     if (cachedResponse) {
         console.log('retrieved from cache');
         return JSON.parse(cachedResponse);
     }
-
-    // @ts-ignore
-    const urlParams = new URLSearchParams(Object.entries(requestParams));
 
     const requestInfo = {
         headers: {
@@ -291,10 +292,10 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
         method: 'GET',
     };
 
-    const url = `https://explorer.lichess.ovh/lichess?${urlParams.toString()}&variant=standard&speeds%5B%5D=classical&speeds%5B%5D=rapid&speeds%5B%5D=blitz&speeds%5B%5D=bullet&ratings%5B%5D=2500&ratings%5B%5D=2200&ratings%5B%5D=2000&ratings%5B%5D=1800&ratings%5B%5D=1600`;
-
+    // Wait 1 second before every api request
     await wait(1000);
 
+    // Send api request
     const res = await fetch(url, requestInfo);
 
     const { moves, black, white, draws } = (await res.json()) as BoardStateDetails;
