@@ -417,6 +417,7 @@ async function saveToGraph(
 ) {
     const boardDbNode: BoardDBNode = {
         uci: path.uci.join(' '),
+        san: path.san?.join(' ') ?? '',
         black: boardStateDetails.black,
         white: boardStateDetails.white,
         draws: boardStateDetails.draws,
@@ -429,9 +430,12 @@ async function saveToGraph(
         const targetPath = path.uci.join(' ');
         const moveDbNode: MoveDBNode = {
             moveUci: last(path.uci)!,
+            moveSan: path.san ? last(path.san)! : '',
             whitePercentage: lastMoveDecisionData.whitePercentage,
             blackPercentage: lastMoveDecisionData.blackPercentage,
             drawPercentage: lastMoveDecisionData.drawPercentage,
+            numGames: lastMoveDecisionData.numGames,
+            probablity: lastMoveDecisionData.probablity,
         };
 
         await insertMoveToDB(sourcePath, targetPath, moveDbNode);

@@ -6,18 +6,13 @@ const CONNECTION_STRING = process.env.NEO4J_CONNECTION_STRING || 'bolt://localho
 const driver = neo4j.driver(CONNECTION_STRING);
 
 export async function insertBoardToDB(board: BoardDBNode) {
-    const { uci, black, white, draws } = board;
-
     const session = driver.session();
     await session.run(
         `
-        CREATE (b:BOARD { uci: $uci, black: $black, white: $white, draws: $draws });
+        CREATE (b:BOARD $board);
     `,
         {
-            uci,
-            black,
-            white,
-            draws,
+            board,
         }
     );
 
@@ -25,22 +20,17 @@ export async function insertBoardToDB(board: BoardDBNode) {
 }
 
 export async function insertMoveToDB(sourceUci: string, targetUci: string, move: MoveDBNode) {
-    const { moveUci, blackPercentage, whitePercentage, drawPercentage } = move;
-
     const session = driver.session();
     await session.run(
         `
         MATCH (source:BOARD { uci: $sourceUci })
         MATCH (target:BOARD { uci: $targetUci })
-        CREATE (source)-[move:MOVE { moveUci: $moveUci, blackPercentage: $blackPercentage, whitePercentage: $whitePercentage, drawPercentage: $drawPercentage }]->(target);
+        CREATE (source)-[move:MOVE $move]->(target);
     `,
         {
             sourceUci,
             targetUci,
-            moveUci,
-            blackPercentage,
-            whitePercentage,
-            drawPercentage,
+            move,
         }
     );
 
