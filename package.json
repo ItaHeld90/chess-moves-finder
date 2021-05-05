@@ -9,9 +9,10 @@
         "build": "tsc --build",
         "start-redis": "docker run -dit --rm --name=chess-moves-redis --mount type=volume,src=chess-moves-redis-vol,target=/data -p 6379:6379 redis:6.0.8 redis-server --appendonly yes",
         "stop-redis": "docker stop chess-moves-redis",
+        "clear-moves-cache": "docker volume rm chess-moves-redis-vol",
         "start-graph": "docker run -dit --rm --name=my-neo4j -p 7474:7474 -p 7687:7687 --env=NEO4J_AUTH=none neo4j:4.2.5",
         "stop-graph": "docker stop my-neo4j",
-        "clear-moves-cache": "docker volume rm chess-moves-redis-vol"
+        "restart-graph": "npm run stop-graph && npm run start-graph"
     },
     "author": "Itamar Held <itaheld1990@gmail.com>",
     "license": "MIT",

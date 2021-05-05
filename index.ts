@@ -4,7 +4,7 @@ import path from 'path';
 import readline from 'readline';
 import fetch from 'node-fetch';
 import * as redis from 'redis';
-import { chunk, groupBy, partition, sumBy, sortBy } from 'lodash';
+import { chunk, groupBy, partition, sumBy, sortBy, initial, last } from 'lodash';
 import {
     BoardStateDetails,
     RequestSearchParams,
@@ -14,6 +14,7 @@ import {
     MovesPath,
     RecordedPath,
     BoardDBNode,
+    MoveDBNode,
 } from './types';
 import {
     budapestDefensePath,
@@ -26,7 +27,7 @@ import {
     staffordGambitPath,
     staffordQueenPath,
 } from './openings';
-import { insertBoardToDB } from './graph-db/graph-db';
+import { insertBoardToDB, insertMoveToDB } from './graph-db/graph-db';
 
 type Structure = {
     [key: string]: Structure | string;
@@ -343,14 +344,8 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
         }
 
         const boardStateDetails = await fetchBoardStateDetails(path.uci);
-        const boardDbNode: BoardDBNode = {
-            uci: path.uci.join(' '),
-            black: boardStateDetails.black,
-            white: boardStateDetails.white,
-            draws: boardStateDetails.draws,
-        };
 
-        await insertBoardToDB(boardDbNode);
+        await saveToGraph(path, boardStateDetails, lastMoveDecisionData);
 
         numExpandedMoves++;
 
@@ -412,5 +407,33 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
                 await recurse(moveDecisionData.path, moveDecisionData);
             }
         }
+    }
+}
+
+async function saveToGraph(
+    path: MovesPath,
+    boardStateDetails: BoardStateDetails,
+    lastMoveDecisionData?: MoveDecisionData
+) {
+    const boardDbNode: BoardDBNode = {
+        uci: path.uci.join(' '),
+        black: boardStateDetails.black,
+        white: boardStateDetails.white,
+        draws: boardStateDetails.draws,
+    };
+
+    await insertBoardToDB(boardDbNode);
+
+    if (lastMoveDecisionData) {
+        const sourcePath = initial(path.uci).join(' ');
+        const targetPath = path.uci.join(' ');
+        const moveDbNode: MoveDBNode = {
+            moveUci: last(path.uci)!,
+            whitePercentage: lastMoveDecisionData.whitePercentage,
+            blackPercentage: lastMoveDecisionData.blackPercentage,
+            drawPercentage: lastMoveDecisionData.drawPercentage,
+        };
+
+        await insertMoveToDB(sourcePath, targetPath, moveDbNode);
     }
 }
