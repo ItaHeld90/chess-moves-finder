@@ -13,6 +13,7 @@ import {
     RunnerState,
     MovesPath,
     RecordedPath,
+    BoardDBNode,
 } from './types';
 import {
     budapestDefensePath,
@@ -25,6 +26,7 @@ import {
     staffordGambitPath,
     staffordQueenPath,
 } from './openings';
+import { insertBoardToDB } from './graph-db/graph-db';
 
 type Structure = {
     [key: string]: Structure | string;
@@ -133,12 +135,12 @@ async function init() {
             return numGames > 300 && [whitePercentage, blackPercentage].some((percentage) => percentage > 85);
         },
         shouldStop: ({ millis }) => {
-            // const seconds = millis / 1000;
+            const seconds = millis / 1000;
 
-            // if (seconds > 300) {
-            //     console.log('timed out');
-            //     return true;
-            // }
+            if (seconds > 60) {
+                console.log('timed out');
+                return true;
+            }
 
             return false;
         },
@@ -341,6 +343,15 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
         }
 
         const boardStateDetails = await fetchBoardStateDetails(path.uci);
+        const boardDbNode: BoardDBNode = {
+            uci: path.uci.join(' '),
+            black: boardStateDetails.black,
+            white: boardStateDetails.white,
+            draws: boardStateDetails.draws,
+        };
+
+        await insertBoardToDB(boardDbNode);
+
         numExpandedMoves++;
 
         const numBoardStateGames = boardStateDetails.white + boardStateDetails.black + boardStateDetails.draws;

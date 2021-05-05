@@ -56,3 +56,10 @@ export interface RecordedPath {
     path: MovesPath;
     decisionData: MoveDecisionData;
 }
+
+export interface BoardDBNode {
+    uci: string;
+    black: number;
+    white: number;
+    draws: number;
+}
