@@ -70,4 +70,5 @@ export interface MoveDBNode {
     drawPercentage: number;
     numGames: number;
     probablity: number;
+    cumulativeProbability: number;
 }

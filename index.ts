@@ -138,7 +138,7 @@ async function init() {
         shouldStop: ({ millis }) => {
             const seconds = millis / 1000;
 
-            if (seconds > 60) {
+            if (seconds > 300) {
                 console.log('timed out');
                 return true;
             }
@@ -436,6 +436,7 @@ async function saveToGraph(
             drawPercentage: lastMoveDecisionData.drawPercentage,
             numGames: lastMoveDecisionData.numGames,
             probablity: lastMoveDecisionData.probablity,
+            cumulativeProbability: lastMoveDecisionData.cumulativeProbability,
         };
 
         await insertMoveToDB(sourcePath, targetPath, moveDbNode);
