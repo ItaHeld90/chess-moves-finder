@@ -4,7 +4,6 @@ import fs from 'fs';
 import path from 'path';
 import { promisify } from 'util';
 import { sansPathToPGN, structure, Structure, terminatedKey } from './helper-utils';
-import { MovesPath } from './types';
 
 // promisified
 const writeFile = promisify(fs.writeFile);
@@ -15,8 +14,8 @@ const mkdir = promisify(fs.mkdir);
 const shouldConsolidateLinearLines = true;
 const savePathBase = path.resolve('saved-results');
 
-export async function handleSaveResults(recordedPathsToSave: MovesPath[]) {
-    if (!recordedPathsToSave.length) return;
+export async function handleSaveResults(sansToSave: string[][]) {
+    if (!sansToSave.length) return;
 
     const rl = readline.createInterface({
         input: process.stdin,
@@ -33,7 +32,7 @@ export async function handleSaveResults(recordedPathsToSave: MovesPath[]) {
     const defaultFolderName = getDefaultFolderName();
     const folderName = (await ask(`folder name: (${defaultFolderName}) `)) || defaultFolderName;
 
-    await saveRecordedPaths(recordedPathsToSave, folderName);
+    await saveSans(sansToSave, folderName);
     console.log('results were saved successfully');
     rl.close();
 }
@@ -52,12 +51,11 @@ function getDefaultFolderName() {
     return folderName;
 }
 
-async function saveRecordedPaths(recordedPaths: MovesPath[], folderName: string) {
+async function saveSans(sans: string[][], folderName: string) {
     const folderPath = path.resolve(savePathBase, folderName);
 
     await mkdir(folderPath, { recursive: true });
 
-    const sans = recordedPaths.map((path) => path.san!);
     const structuredSans = structure(sans, { consolidateLinearLines: shouldConsolidateLinearLines });
     const filteredSans = flattenStructure(structuredSans);
     const sortedSans = sortBy(filteredSans, (san) => san.join(' '));
