@@ -56,3 +56,19 @@ export interface RecordedPath {
     path: MovesPath;
     decisionData: MoveDecisionData;
 }
+
+export interface BoardDBNode extends GameStats {
+    uci: string;
+    san?: string;
+}
+
+export interface MoveDBNode {
+    moveUci: string;
+    moveSan: string;
+    whitePercentage: number;
+    blackPercentage: number;
+    drawPercentage: number;
+    numGames: number;
+    probablity: number;
+    cumulativeProbability: number;
+}
