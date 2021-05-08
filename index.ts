@@ -27,7 +27,7 @@ import {
     staffordGambitPath,
     staffordQueenPath,
 } from './openings';
-import { insertBoardToDB, insertMoveToDB } from './graph-db/graph-db';
+import { initGraphDB, insertBoardToDB, insertMoveToDB } from './graph-db/graph-db';
 
 type Structure = {
     [key: string]: Structure | string;
@@ -138,7 +138,7 @@ async function init() {
         shouldStop: ({ millis }) => {
             const seconds = millis / 1000;
 
-            if (seconds > 300) {
+            if (seconds > 600) {
                 console.log('timed out');
                 return true;
             }
@@ -310,6 +310,8 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 }
 
 async function runner(params: RunnerParams): Promise<RunnerState> {
+    await initGraphDB();
+
     const startTime = new Date().getTime();
     const recordedPaths: RecordedPath[] = [];
     let numExpandedMoves = 0;
