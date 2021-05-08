@@ -82,6 +82,7 @@ function sansPathToPGN(sansPath: string[]): string {
 // Config
 
 const shouldConsolidateLinearLines = true;
+const updateGraphDB = true;
 const savePathBase = path.resolve('saved-results');
 
 // Consts
@@ -310,7 +311,9 @@ async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardSta
 }
 
 async function runner(params: RunnerParams): Promise<RunnerState> {
-    await initGraphDB();
+    if (updateGraphDB) {
+        await initGraphDB();
+    }
 
     const startTime = new Date().getTime();
     const recordedPaths: RecordedPath[] = [];
@@ -347,7 +350,9 @@ async function runner(params: RunnerParams): Promise<RunnerState> {
 
         const boardStateDetails = await fetchBoardStateDetails(path.uci);
 
-        await saveToGraph(path, boardStateDetails, lastMoveDecisionData);
+        if (updateGraphDB) {
+            await saveToGraph(path, boardStateDetails, lastMoveDecisionData);
+        }
 
         numExpandedMoves++;
 
