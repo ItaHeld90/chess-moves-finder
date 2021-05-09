@@ -5,14 +5,16 @@
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1",
-        "start": "ts-node index.ts",
         "build": "tsc --build",
+        "search-api": "ts-node search-api.ts",
+        "search-graph": "ts-node search-graph.ts",
         "start-redis": "docker run -dit --rm --name=chess-moves-redis --mount type=volume,src=chess-moves-redis-vol,target=/data -p 6379:6379 redis:6.0.8 redis-server --appendonly yes",
         "stop-redis": "docker stop chess-moves-redis",
         "clear-moves-cache": "docker volume rm chess-moves-redis-vol",
-        "start-graph": "docker run -dit --rm --name=my-neo4j -p 7474:7474 -p 7687:7687 --env=NEO4J_AUTH=none neo4j:4.2.5",
-        "stop-graph": "docker stop my-neo4j",
-        "restart-graph": "npm run stop-graph && npm run start-graph"
+        "start-graph": "docker run -dit --rm --name=chess-moves-neo4j --mount type=volume,src=chess-moves-neo4j-vol,target=/data -p 7474:7474 -p 7687:7687 --env=NEO4J_AUTH=none neo4j:4.2.5",
+        "stop-graph": "docker stop chess-moves-neo4j",
+        "restart-graph": "npm run stop-graph && npm run start-graph",
+        "clear-graph": "docker volume rm chess-moves-neo4j-vol"
     },
     "author": "Itamar Held <itaheld1990@gmail.com>",
     "license": "MIT",

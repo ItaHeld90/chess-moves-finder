@@ -8,6 +8,7 @@ export const driver = neo4j.driver(CONNECTION_STRING);
 export async function initGraphDB() {
     const session = driver.session();
 
+    // Create indexes
     await session.run(`CREATE INDEX board_san_index IF NOT EXISTS FOR (b:BOARD) ON (b.san);`);
     await session.run(`CREATE INDEX board_uci_index IF NOT EXISTS FOR (b:BOARD) ON (b.uci);`);
 
