@@ -24,10 +24,10 @@ async function searchGraph() {
 
     const sans = results.records.map((record) => record.get('line'));
 
+    await session.close();
+
     console.log('results:');
     console.log(sans);
-
-    await session.close();
 
     await handleSaveResults(sans);
 }
