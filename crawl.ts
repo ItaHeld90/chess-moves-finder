@@ -13,6 +13,7 @@ import {
     BoardStateDetails,
     MoveDBNode,
     RequestSearchParams,
+    MoveDetails,
 } from './types';
 import { percentage, addGetter, wait } from './helper-utils';
 
@@ -74,14 +75,17 @@ export async function runner(params: RunnerParams): Promise<RunnerState> {
         console.log('path:', path.san);
         console.log('number of games:', numBoardStateGames);
 
+        // the probabilty for a move is calculated relative to the total sum of number of games for sibling moves
+        const totalNumGamesForMoves = sumBy(boardStateDetails.moves, getNumGamesForMove);
+
         const movesDecisionData: MoveDecisionData[] = boardStateDetails.moves.reduce((res, move) => {
-            const numMoveGames = move.white + move.black + move.draws;
+            const numMoveGames = getNumGamesForMove(move);
             const movePath: MovesPath = {
                 uci: [...path.uci, move.uci],
                 san: path.san ? [...path.san, move.san] : undefined,
             };
             const pathLen = movePath.uci.length;
-            const probablity = percentage(numMoveGames / numBoardStateGames);
+            const probablity = percentage(numMoveGames / totalNumGamesForMoves);
 
             // TODO: works only if moves are sorted by probability in descending order
             const cumulativeProbability = sumBy(res, (move) => move.probablity);
@@ -128,6 +132,10 @@ export async function runner(params: RunnerParams): Promise<RunnerState> {
             }
         }
     }
+}
+
+function getNumGamesForMove(move: MoveDetails): number {
+    return move.white + move.black + move.draws;
 }
 
 async function fetchBoardStateDetails(previousMoves: string[]): Promise<BoardStateDetails> {
